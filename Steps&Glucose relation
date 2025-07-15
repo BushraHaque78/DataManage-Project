@@ -1,0 +1,45 @@
+import pandas as pd
+import numpy as np
+
+
+glucose_df = pd.read_csv('glucose.csv')
+steps_df = pd.read_csv('steps_with_timestamps.csv')
+
+if 'date' in glucose_df.columns and 'time' in glucose_df.columns:
+    glucose_df['timestamp'] = pd.to_datetime(glucose_df['date'] + ' ' + glucose_df['time'], dayfirst=True)
+else:
+    glucose_df['timestamp'] = pd.to_datetime(glucose_df['timestamp'], dayfirst=True)
+
+steps_df['timestamp'] = pd.to_datetime(steps_df['timestamp'])
+
+glucose_df = glucose_df.sort_values('timestamp')
+steps_df = steps_df.sort_values('timestamp')
+
+window = pd.Timedelta(minutes=30)
+total_steps_list = []
+
+for idx, row in glucose_df.iterrows():
+    time = row['timestamp']
+    mask = (steps_df['timestamp'] >= (time - window)) & (steps_df['timestamp'] <= time)
+    total_steps = steps_df.loc[mask, 'steps'].sum()
+    total_steps_list.append(total_steps)
+
+glucose_df['steps_last_30min'] = total_steps_list
+
+
+def get_time_of_day(hour):
+    if 6 <= hour < 12:
+        return 'morning'
+    elif 12 <= hour < 18:
+        return 'afternoon'
+    elif 18 <= hour < 22:
+        return 'evening'
+    else:
+        return 'night'
+
+glucose_df['time_of_day'] = glucose_df['timestamp'].dt.hour.apply(get_time_of_day)
+
+glucose_df.to_csv('model_ready_dataset.csv', index=False)
+
+print("Data prepared and saved as model_ready_dataset.csv")
+print(glucose_df.head())
